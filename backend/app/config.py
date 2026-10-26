@@ -42,6 +42,7 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:3000",
+        "https://wind-forecast-omega.vercel.app",
         "*"
     ]
 
@@ -49,7 +50,10 @@ class Settings(BaseSettings):
     @classmethod
     def parse_cors_origins(cls, v: Any) -> List[str]:
         if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
+            origins = [origin.strip() for origin in v.split(",") if origin.strip()]
+            if "https://wind-forecast-omega.vercel.app" not in origins:
+                origins.append("https://wind-forecast-omega.vercel.app")
+            return origins
         return v
 
 
