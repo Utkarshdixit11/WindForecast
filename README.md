@@ -200,23 +200,7 @@ docker-compose up --build
 
 ---
 
-## 7. Deployment Guide
-
-### A. Backend Deployment (e.g., Render / Railway / Fly.io / AWS App Runner)
-
-1. **Docker Deployment:**
-   * Build Context: Repository Root (`.`)
-   * Dockerfile Path: `backend/Dockerfile`
-   * Exposed Port: `8000`
-2. **Environment Variables:**
-   ```ini
-   ELEXON_API_BASE_URL=https://data.elexon.co.uk/bmrs/api/v1
-   ELEXON_HTTP_TIMEOUT=30.0
-   DEFAULT_START_DATE=2026-01-01
-   DEFAULT_END_DATE=2026-01-31
-   DEFAULT_CUTOFF_TIME_UK=11:00
-   CORS_ORIGINS=https://your-frontend-domain.vercel.app,http://localhost:3000,http://localhost:5173
-   DEBUG=False
+## 
    ```
 3. **Healthcheck Endpoint:** `GET /api/health`
 
@@ -269,39 +253,7 @@ Ingesting genuine Elexon BMRS observations for the entire month of January 2026 
 
 ---
 
-## 10. Technical Demo Outline (10 Minutes)
-
-### Part 1 — Customer & Market Analyst Presentation (Maximum 5 Minutes)
-1. **The Commercial Procurement Challenge (1 min):**
-   * Explain wholesale electricity purchasing in the UK day-ahead market.
-   * Highlight volume imbalance risks: overforecasting leaves the utility short; underforecasting creates spill risk.
-2. **Dashboard Demonstration (2 min):**
-   * Walk through the header, live Elexon status indicator, and date presets for January 2026.
-   * Show KPI cards: MAE ($2,126.1 \text{ MW}$), RMSE ($2,620.8 \text{ MW}$), and Mean Bias ($+1,840.3 \text{ MW}$).
-   * Explain the directional bias badge: why positive bias means National Grid ESO systematically overforecast wind in January 2026.
-3. **Interactive Charts & Decision Analysis (1.5 min):**
-   * Demonstrate the Forecast vs. Actual generation timeline with brush zoom.
-   * Highlight the Signed Error chart around zero baseline to identify trading days with large forecast deviations.
-   * Demonstrate the Settlement Period Audit Table, search filtering, and CSV export.
-4. **Decision Support Scope (0.5 min):**
-   * Emphasize that the tool informs risk hedging and bidding volume without claiming to automate market transactions.
-
-### Part 2 — Technical & Architectural Review (Maximum 5 Minutes)
-1. **Architecture Overview (1 min):**
-   * FastAPI backend, React 19 + TypeScript frontend, Tailwind CSS, Recharts.
-   * Separation of concerns: API client, data normalization, forecast selection, metrics calculation.
-2. **Elexon BMRS Data Ingestion (1 min):**
-   * Streaming from `/datasets/FUELHH/stream` and `/datasets/WINDFOR/stream`.
-   * Resilient HTTPX async client with exponential backoff and local disk cache.
-3. **Forecast Selection Logic & Cutoff Assumptions (1.5 min):**
-   * Detail separation of delivery time, publication time, and cutoff time.
-   * Show how the 11:00 D-1 wholesale auction cutoff prevents look-ahead bias.
-   * Demonstrate live cutoff sensitivity: switching from 11:00 to 16:00 cutoff drops MAE from $2,126.1 \text{ MW}$ to $1,984.5 \text{ MW}$.
-4. **Testing, Docker, and Honest Error Handling (1.5 min):**
-   * Run pytest suite ($23 / 23$ passing).
-   * Demonstrate honest error handling when invalid date ranges are entered.
-   * Review Docker multi-stage builds and Docker Compose configuration.
-
+## 
 ---
 
 ## 11. Honest Disclosures, Limitations & AI Tool Usage
