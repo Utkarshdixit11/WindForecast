@@ -2,6 +2,16 @@
 
 A complete, production-grade analytics web application built for UK electricity utilities purchasing power in the Day-Ahead wholesale market. The application ingests genuine wind generation actuals and rolling forecasts from the **Elexon BMRS Open Data API**, matches delivery periods strictly respecting day-ahead purchase decision cutoffs, and quantifies forecast errors using transparent statistical metrics.
 
+## Application Screenshots
+
+### Live Elexon BMRS Analysis (January 2026)
+![Wind Forecast Intelligence Dashboard Overview](docs/images/dashboard_overview.png)
+*Figure 1: Wind Forecast Intelligence Dashboard displaying genuine January 2026 Elexon BMRS observations (1,488 half-hour settlement periods), interactive KPI summary cards, Forecast vs. Actual overlay timeline with zoom brush, signed error distribution chart, and the settlement period audit table.*
+
+### Synthetic Demo Mode & Offline Fixtures
+![Synthetic Demo Mode and Offline Verification](docs/images/demo_mode.png)
+*Figure 2: Synthetic Demo Mode activated via the header toggle. Renders deterministic edge cases, missing data flags, and provides an offline fallback without modifying the production API path.*
+
 ---
 
 ## 1. Business Problem & Procurement Context
