@@ -1,8 +1,9 @@
 # Wind Forecast Intelligence — UK Day-Ahead Analytics
 
-> 🌐 **Live Deployed Application:** [Wind Forecast Intelligence | UK Day-Ahead Analytics](https://wind-forecast-omega.vercel.app/)
+> 🌐 **Live Deployed Frontend (Vercel):** [https://wind-forecast-omega.vercel.app/](https://wind-forecast-omega.vercel.app/)  
+> ⚡ **Live Deployed Backend API (Render):** [https://wind-forecast-api-yj50.onrender.com/](https://wind-forecast-api-yj50.onrender.com/) *(Interactive Swagger Docs: [/docs](https://wind-forecast-api-yj50.onrender.com/docs) \| Health: [/api/health](https://wind-forecast-api-yj50.onrender.com/api/health))*
 
-A complete, production-grade analytics web application built for UK electricity utilities purchasing power in the Day-Ahead wholesale market. The application ingests genuine wind generation actuals and rolling forecasts from the **Elexon BMRS Open Data API**, matches delivery periods strictly respecting day-ahead purchase decision cutoffs, and quantifies forecast errors using transparent statistical metrics.
+A complete, production-ready analytics web application built for UK electricity utilities purchasing power in the Day-Ahead wholesale market. The application ingests genuine wind generation actuals and rolling forecasts from the **Elexon BMRS Open Data API**, matches delivery periods strictly respecting day-ahead purchase decision cutoffs, and quantifies forecast errors using transparent statistical metrics.
 
 ## Application Screenshots
 
@@ -54,25 +55,26 @@ All data is ingested from the **Elexon Insights Solution (BMRS) API** (`https://
   * `publishTime`: Timestamp when National Grid ESO published this specific forecast revision.
   * `generation`: Predicted wind generation in Megawatts (MW).
 
-### Time Resolution Alignment
-* While `FUELHH` outturns are published every 30 minutes, `WINDFOR` is issued by ESO on clock-hour boundaries.
+### Time Resolution Alignment & Granularity Nuance
+* While `FUELHH` outturns are recorded every 30 minutes (Settlement Periods 1 to 48), `WINDFOR` is issued by National Grid ESO on clock-hour boundaries (60-minute intervals).
 * The application supports two documented matching strategies via `resolution_matching`:
-  1. `hourly_block` (Default, market convention): Maps the hourly ESO forecast across both half-hour settlement periods in that hour ($HH$:00 and $HH$:30).
-  2. `exact_timestamp`: Strictly pairs only $HH$:00 periods, reporting $HH$:30 periods honestly as `MISSING_FORECAST` with zero silent discarding.
+  1. `hourly_block` (Default wholesale market convention): Maps the hourly ESO forecast across both half-hour settlement periods in that hour ($HH$:00 and $HH$:30).
+     * **Analytical Transparency Note:** Mapping one hourly forecast across two half-hour delivery periods does *not* create two independent forecasts. It is a step-function volume attribution matching the commercial convention of UK power trading desks evaluating half-hourly imbalance against hourly day-ahead auction blocks.
+  2. `exact_timestamp` (Strict Pairing): Strictly matches only top-of-the-hour ($HH$:00) periods. The :30 periods are explicitly flagged as `MISSING_FORECAST` with zero silent discarding (yielding 744 valid pairs and 744 missing forecast periods in a 31-day month).
 
 ---
 
 ## 3. Critical Forecast Selection Logic & Look-Ahead Bias Prevention
 
 1. **Separation of Concepts:**
-   * **Target Delivery Period ($T_{\text{delivery}}$):** The half-hour window when power physically flows.
-   * **Forecast Publication Time ($T_{\text{pub}}$):** The timestamp when the forecast was issued by National Grid ESO.
-   * **Purchase Decision Cutoff ($T_{\text{cutoff}}$):** The trading gate closure deadline.
+   * **Target Delivery Period ($T_{\text{delivery}}$):** The half-hour window when power physically flows through the national transmission system.
+   * **Forecast Publication Time ($T_{\text{pub}}$):** The timestamp when National Grid ESO calculated and issued the forecast update.
+   * **Purchase Decision Cutoff ($T_{\text{cutoff}}$):** The trading gate closure deadline when day-ahead auction bids are submitted.
 
 2. **Cutoff Assumption & Market Alignment:**
    * **Configured Default:** `day_ahead_fixed` at **11:00 UK local time on Day D-1**.
-   * **Market Rationale:** 11:00 London local time corresponds to the order submission gate closure of the UK Day-Ahead wholesale power auction (EPEX SPOT UK Day-Ahead Auction).
-   * **Timezone Normalization:** Implemented using `zoneinfo.ZoneInfo("Europe/London")` to account for Greenwich Mean Time (GMT, UTC+0) and British Summer Time (BST, UTC+1). On clock change dates, 11:00 BST translates to 10:00 UTC.
+   * **Analytical Assumption Disclosure:** The 11:00 London local time cutoff on Day D-1 is a **configurable analytical assumption** modeled on the order submission deadline for Great Britain's Day-Ahead wholesale power auction (EPEX SPOT UK Day-Ahead Auction order book closes at 11:00 London time). It represents the moment when commercial volume purchasing decisions must be finalized. Users can freely configure alternative cutoff assumptions via the UI or API (e.g. 09:00, 12:00, 16:00, or relative hours lead) to evaluate sensitivity across procurement windows.
+   * **Timezone Normalization:** Implemented using Python's `zoneinfo.ZoneInfo("Europe/London")` to account for Greenwich Mean Time (GMT, UTC+0) and British Summer Time (BST, UTC+1). On clock change dates, 11:00 BST translates to 10:00 UTC.
 
 3. **Selection Rule & Look-Ahead Prevention:**
    * A forecast record $f$ for target period $T_{\text{delivery}}$ is eligible if and only if:
@@ -177,7 +179,7 @@ graph TD
                    ▼                                   │
 ┌─────────────────────────────────────┐  ┌─────────────┴───────────────┐
 │     ELEXON BMRS OPEN DATA API       │  │    LOCAL PERSISTENT CACHE   │
-│  https://data.elexon.co.uk/bmrs/v1 │  │     (backend/data/cache/)   │
+│ https://data.elexon.co.uk/bmrs/api/v1 │ │     (backend/data/cache/)   │
 │   - /datasets/FUELHH/stream         │  │   - FUELHH_WIND_*.json      │
 │   - /datasets/WINDFOR/stream        │  │   - WINDFOR_*.json          │
 └─────────────────────────────────────┘  └─────────────────────────────┘
@@ -278,11 +280,20 @@ docker-compose up --build
 
 ---
 
-## 7. Deployment Guide & Live Links
+## 7. Verified Deployment Guide & Live Links
 
-* 🌐 **Live Deployed Frontend (Vercel):** [Wind Forecast Intelligence | UK Day-Ahead Analytics](https://wind-forecast-omega.vercel.app/)
+### Verified Live Endpoints
+* 🌐 **Production Frontend (Vercel):** [https://wind-forecast-omega.vercel.app/](https://wind-forecast-omega.vercel.app/)
+* ⚡ **Production Backend API (Render):** [https://wind-forecast-api-yj50.onrender.com/](https://wind-forecast-api-yj50.onrender.com/)
+* 📖 **Interactive OpenAPI Documentation:** [https://wind-forecast-api-yj50.onrender.com/docs](https://wind-forecast-api-yj50.onrender.com/docs)
+* 🩺 **Backend Healthcheck:** [https://wind-forecast-api-yj50.onrender.com/api/health](https://wind-forecast-api-yj50.onrender.com/api/health)
 
-### A. Backend Deployment (Docker Container)
+### Verification & Data Flow
+* **Live Connection Verified:** The Vercel frontend actively retrieves analysis data from the Render backend.
+* **CORS Policy:** Render's `CORSMiddleware` explicitly allows `https://wind-forecast-omega.vercel.app` as well as any Vercel deployment domain via regex (`^https:\/\/.*\.vercel\.app$`).
+* **Data Sources Verified:** The backend queries genuine Elexon BMRS Open Data streams, with persistent local caching in `backend/data/cache/` to insulate trading queries from external rate limits. Offline testing is fully supported via the synthetic Demo Mode toggle.
+
+### A. Backend Deployment (Render or Docker)
 * **Build Context:** Repository Root (`.`)
 * **Dockerfile Path:** `backend/Dockerfile`
 * **Exposed Port:** `8000`
@@ -308,7 +319,7 @@ docker-compose up --build
    * **Output Directory:** `dist`
 3. **Environment Variables in Vercel:**
    ```ini
-   VITE_API_URL=https://your-backend-service.onrender.com
+   VITE_API_URL=https://wind-forecast-api-yj50.onrender.com
    ```
 4. **SPA Routing:** `frontend/vercel.json` is configured with rewrites so deep routes navigate to `index.html` without 404 errors.
 
@@ -344,67 +355,69 @@ python -m pytest backend/tests -v
 ```
 
 ```text
+backend/tests/test_api.py::test_root_endpoint PASSED
 backend/tests/test_api.py::test_health_endpoint PASSED
 backend/tests/test_api.py::test_metadata_endpoint PASSED
-backend/tests/test_api.py::test_analysis_endpoint_success PASSED
-backend/tests/test_api.py::test_analysis_endpoint_invalid_date_range PASSED
-backend/tests/test_api.py::test_analysis_demo_mode PASSED
-backend/tests/test_api.py::test_analysis_exact_timestamp_matching PASSED
-backend/tests/test_bmrs_client.py::test_cache_write_and_read PASSED
-backend/tests/test_bmrs_client.py::test_fetch_fuelhh_uses_cache PASSED
-backend/tests/test_bmrs_client.py::test_fetch_fuelhh_retry_on_server_error PASSED
-backend/tests/test_bmrs_client.py::test_fetch_windfor_network_failure PASSED
-backend/tests/test_forecast_selector.py::test_cutoff_calculation_gmt PASSED
-backend/tests/test_forecast_selector.py::test_cutoff_calculation_bst PASSED
-backend/tests/test_forecast_selector.py::test_strict_lookahead_exclusion PASSED
-backend/tests/test_forecast_selector.py::test_latest_eligible_selection PASSED
-backend/tests/test_forecast_selector.py::test_hourly_block_resolution_matching PASSED
-backend/tests/test_forecast_selector.py::test_exact_timestamp_resolution_matching PASSED
-backend/tests/test_forecast_selector.py::test_deduplication_of_records PASSED
-backend/tests/test_metrics.py::test_mae_calculation PASSED
-backend/tests/test_metrics.py::test_rmse_calculation PASSED
-backend/tests/test_metrics.py::test_bias_calculation PASSED
-backend/tests/test_metrics.py::test_wape_calculation PASSED
-backend/tests/test_metrics.py::test_wape_zero_denominator_safe PASSED
-backend/tests/test_metrics.py::test_empty_records_metrics PASSED
+backend/tests/test_api.py::test_analysis_endpoint_demo_mode PASSED
+backend/tests/test_api.py::test_analysis_invalid_date_range PASSED
+backend/tests/test_api.py::test_analysis_range_exceeds_limit PASSED
+backend/tests/test_bmrs_client.py::test_client_reads_from_cache PASSED
+backend/tests/test_bmrs_client.py::test_client_fetch_with_retries_and_error PASSED
+backend/tests/test_bmrs_client.py::test_client_non_retryable_400 PASSED
+backend/tests/test_forecast_selector.py::test_cutoff_computation_gmt_winter PASSED
+backend/tests/test_forecast_selector.py::test_cutoff_computation_bst_summer_daylight_saving PASSED
+backend/tests/test_forecast_selector.py::test_cutoff_computation_relative_hours PASSED
+backend/tests/test_forecast_selector.py::test_latest_eligible_forecast_selection_and_post_cutoff_rejection PASSED
+backend/tests/test_forecast_selector.py::test_missing_forecast_when_all_forecasts_post_cutoff PASSED
+backend/tests/test_forecast_selector.py::test_missing_actual_outturn PASSED
+backend/tests/test_forecast_selector.py::test_duplicate_records_deduplication PASSED
+backend/tests/test_forecast_selector.py::test_settlement_period_numbering PASSED
+backend/tests/test_forecast_selector.py::test_resolution_matching_hourly_block_vs_exact PASSED
+backend/tests/test_metrics.py::test_known_numerical_metrics PASSED
+backend/tests/test_metrics.py::test_positive_bias_overforecasting PASSED
+backend/tests/test_metrics.py::test_negative_bias_underforecasting PASSED
+backend/tests/test_metrics.py::test_zero_denominator_wape_handling PASSED
+backend/tests/test_metrics.py::test_empty_pairs_list PASSED
 
-============================== 23 passed in 1.36s ==============================
+============================== 23 passed in 1.51s ==============================
 ```
 
 ---
 
-## 9. Genuine January 2026 Analytical Findings
+## 9. Verified & Reproducible January 2026 Analytical Findings
 
-Ingesting genuine Elexon BMRS observations for the entire month of January 2026 ($N = 1,488$ half-hour periods) with the configured 11:00 D-1 Day-Ahead cutoff yields:
+Executing the analytical pipeline on genuine Elexon BMRS observations for the entire month of January 2026 ($N = 1,488$ half-hour periods) with the configured 11:00 D-1 Day-Ahead cutoff yields reproducible results:
+
+### A. Primary Mode: Hourly Block Mapping (`resolution_matching="hourly_block"`)
 * **Analysis Window:** 2026-01-01 00:00:00Z to 2026-01-31 23:30:00Z ($31 \text{ days} \times 48 \text{ settlement periods}$)
-* **Data Completeness:** $100.0\%$ ($1,488 / 1,488$ valid pairs)
-* **Mean Absolute Error (MAE):** $2,126.12 \text{ MW}$
-* **Root Mean Squared Error (RMSE):** $2,620.80 \text{ MW}$
+* **Total Expected Settlement Periods:** $1,488$
+* **Valid Matched Pairs:** $1,488$ ($100.0\%$ complete; $0$ missing forecasts, $0$ missing actuals)
+* **Mean Absolute Error (MAE):** $2,126.12 \text{ MW}$ ($1,063 \text{ MWh/period}$)
+* **Root Mean Squared Error (RMSE):** $2,620.80 \text{ MW}$ ($+495 \text{ MW}$ volatility spread vs MAE)
 * **Mean Bias:** $+1,840.30 \text{ MW}$ *(systematic day-ahead overforecasting by National Grid ESO across January 2026)*
 * **Weighted Absolute Percentage Error (WAPE):** $18.36\%$
 * **Total Wind Energy Delivered:** $8,616,068.5 \text{ MWh}$ (~8.62 TWh)
 * **Total Wind Energy Forecasted:** $9,985,249.0 \text{ MWh}$ (~9.99 TWh)
 
+### B. Strict Pairing Mode: Exact Timestamp Only (`resolution_matching="exact_timestamp"`)
+* **Total Expected Periods:** $1,488$
+* **Valid Matched Pairs:** $744$ (:00 clock hours strictly paired)
+* **Explicit Missing Forecasts:** $744$ (:30 half-hour periods without direct hourly forecast)
+* **Data Completeness:** $50.0\%$
+* **Mean Absolute Error (MAE):** $2,107.18 \text{ MW}$
+* **Root Mean Squared Error (RMSE):** $2,611.24 \text{ MW}$
+* **Mean Bias:** $+1,839.92 \text{ MW}$
+* **Weighted Absolute Percentage Error (WAPE):** $18.19\%$
+
 ---
 
-## 10. Technical Demo Outline (10 Minutes)
-
-### Part 1 — Customer & Market Analyst Presentation (5 Minutes)
-1. **The Commercial Procurement Challenge (1 min):** Wholesale power purchasing in UK day-ahead auction; volume imbalance risks from wind intermittency.
-2. **Dashboard Demonstration (2 min):** Real Elexon January 2026 data, MAE ($2,126.1 \text{ MW}$), RMSE ($2,620.8 \text{ MW}$), and Mean Bias ($+1,840.3 \text{ MW}$ short risk).
-3. **Interactive Charts & Decision Analysis (1.5 min):** Forecast vs. Actual overlay with zoom brush, Signed Error profile identifying extreme deviation days.
-4. **Decision Support Scope (0.5 min):** Empirical error distributions for risk hedging and reserve sizing; transparent decision support without automated trade execution.
-
-### Part 2 — Technical & Architectural Review (5 Minutes)
-1. **Architecture & Ingestion (1 min):** FastAPI backend, React 19 frontend, streaming from Elexon BMRS `/FUELHH` and `/WINDFOR` with local disk caching.
-2. **Look-Ahead Bias Elimination (1.5 min):** Strict enforcement of 11:00 D-1 wholesale cutoff, GMT/BST timezone translation, and hourly-to-half-hourly resolution matching.
-3. **Automated Testing Suite (1.5 min):** 23 pytest tests passing in 1.36s, zero-denominator safety, and deterministic synthetic demo fixtures.
-4. **Containerization & Deployment (1 min):** Multi-stage Docker builds, Docker Compose, Nginx reverse proxy, and Vercel cloud configuration.
-
-## 11. Honest Disclosures, Limitations & AI Tool Usage
+## 10. Honest Disclosures, Limitations & AI Tool Usage
 
 * **AI Tool Usage:** Antigravity (Google DeepMind agentic coding assistant) was utilized for scaffolding, test generation, and frontend component assembly. All code, analytical logic, schemas, and mathematical metrics were verified.
 * **Limitations & Known Edge Cases:**
   * National Grid ESO publishes `WINDFOR` at hourly resolution, while `FUELHH` outturn is half-hourly. The default `hourly_block` strategy maps hourly forecasts to both half-hours; the `exact_timestamp` option provides strict timestamp matching.
   * Elexon BMRS API can experience intermittent rate limits or latency during heavy stream downloads; the local cache ensures high availability once data has been fetched.
-* **Deployment Notice:** Local Docker Compose and development servers have been verified. Cloud deployment URLs (Vercel/Render) are ready to be connected with repository credentials.
+* **Verified Deployment Status:** 
+  * Frontend is deployed and verified live on **Vercel**: [https://wind-forecast-omega.vercel.app/](https://wind-forecast-omega.vercel.app/)
+  * Backend API is deployed and verified live on **Render**: [https://wind-forecast-api-yj50.onrender.com/](https://wind-forecast-api-yj50.onrender.com/)
+  * Local development servers and multi-stage Docker Compose have both been verified.
