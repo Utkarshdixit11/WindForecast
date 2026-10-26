@@ -58,7 +58,9 @@ export const KpiCards: React.FC<KpiCardsProps> = ({
         </div>
         <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
           <span>Penalizes large swings</span>
-          <span className="font-mono text-slate-600">$\sqrt{'{'}MSE{'}'}$</span>
+          <span className="font-mono text-slate-600">
+            +{Math.max(0, metrics.rmse_mw - metrics.mae_mw).toLocaleString(undefined, { maximumFractionDigits: 0 })} MW vs MAE
+          </span>
         </div>
       </div>
 
