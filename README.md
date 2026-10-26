@@ -1,5 +1,7 @@
 # Wind Forecast Intelligence — UK Day-Ahead Analytics
 
+> 🌐 **Live Deployed Application:** [Wind Forecast Intelligence | UK Day-Ahead Analytics](https://wind-forecast-omega.vercel.app/)
+
 A complete, production-grade analytics web application built for UK electricity utilities purchasing power in the Day-Ahead wholesale market. The application ingests genuine wind generation actuals and rolling forecasts from the **Elexon BMRS Open Data API**, matches delivery periods strictly respecting day-ahead purchase decision cutoffs, and quantifies forecast errors using transparent statistical metrics.
 
 ## Application Screenshots
@@ -276,7 +278,9 @@ docker-compose up --build
 
 ---
 
-## 7. Deployment Guide
+## 7. Deployment Guide & Live Links
+
+* 🌐 **Live Deployed Frontend (Vercel):** [Wind Forecast Intelligence | UK Day-Ahead Analytics](https://wind-forecast-omega.vercel.app/)
 
 ### A. Backend Deployment (Docker Container)
 * **Build Context:** Repository Root (`.`)
@@ -289,23 +293,24 @@ docker-compose up --build
   DEFAULT_START_DATE=2026-01-01
   DEFAULT_END_DATE=2026-01-31
   DEFAULT_CUTOFF_TIME_UK=11:00
-  CORS_ORIGINS=https://your-frontend-domain.vercel.app,http://localhost:3000,http://localhost:5173
+  CORS_ORIGINS=https://wind-forecast-omega.vercel.app,http://localhost:3000,http://localhost:5173
   DEBUG=False
   ```
 * **Healthcheck:** `GET /api/health`
 
 ### B. Frontend Deployment (Vercel)
 
-1. **Vercel Project Setup:**
+1. **Live Production URL:** [https://wind-forecast-omega.vercel.app/](https://wind-forecast-omega.vercel.app/)
+2. **Vercel Project Setup:**
    * **Root Directory:** `frontend`
    * **Framework Preset:** `Vite`
    * **Build Command:** `npm run build`
    * **Output Directory:** `dist`
-2. **Environment Variables in Vercel:**
+3. **Environment Variables in Vercel:**
    ```ini
    VITE_API_URL=https://your-backend-service.onrender.com
    ```
-3. **SPA Routing:** `frontend/vercel.json` is configured with rewrites so deep routes navigate to `index.html` without 404 errors.
+4. **SPA Routing:** `frontend/vercel.json` is configured with rewrites so deep routes navigate to `index.html` without 404 errors.
 
 ---
 
