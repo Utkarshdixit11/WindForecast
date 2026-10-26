@@ -100,12 +100,88 @@ Calculated across all $N$ valid pairs:
 
 ---
 
-## 5. Technology Stack & Project Structure
+## 5. Technology Stack & System Architecture
 
+### A. Technology Stack
 * **Frontend:** React 19, Vite, TypeScript, Tailwind CSS, Recharts, Lucide Icons.
 * **Backend:** Python 3.11, FastAPI, Pandas, HTTPX (async client with exponential backoff retries), Pydantic v2.
 * **Testing:** Pytest, Pytest-Asyncio (deterministic fixtures with zero external network dependencies).
 * **Containerization:** Docker multi-stage builds and Docker Compose with healthchecks.
+
+### B. System Architecture Diagram
+
+```mermaid
+graph TD
+    subgraph Browser ["Client Layer (React 19 + TypeScript + Vite)"]
+        UI["Dashboard Page"]
+        Filters["Purchase Filters (Cutoff / Presets)"]
+        Cards["KPI Summary Cards (MAE / RMSE / Bias / WAPE)"]
+        Charts["Forecast vs Actual & Signed Error Charts"]
+        Table["Settlement Audit Table (CSV Export)"]
+        UI --> Filters
+        UI --> Cards
+        UI --> Charts
+        UI --> Table
+    end
+
+    subgraph Backend ["FastAPI Application (Python 3.11)"]
+        Routes["API Endpoints (/api/analysis, /api/health)"]
+        Coordinator["Analysis Coordinator Pipeline"]
+        Selector["Forecast Selector (Look-Ahead Bias Elimination)"]
+        MetricsEngine["Metrics Engine (MAE, RMSE, Bias, WAPE)"]
+        Routes --> Coordinator
+        Coordinator --> Selector
+        Coordinator --> MetricsEngine
+    end
+
+    subgraph DataLayer ["Data & Ingestion Layer"]
+        BMRSClient["Resilient BMRS Client (Async HTTPX)"]
+        DiskCache[("Local Disk Cache (backend/data/cache/)")]
+        ElexonAPI["Elexon BMRS Open Data API"]
+        
+        Coordinator --> BMRSClient
+        BMRSClient <-->|Fast Read / Write| DiskCache
+        BMRSClient <-->|Stream / Fallback| ElexonAPI
+    end
+
+    UI -->|REST JSON Requests| Routes
+```
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                        BROWSER / CLIENT LAYER                          │
+│  React 19 + TypeScript + Vite + Tailwind CSS + Recharts (Port 5173)   │
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │ HTTP REST Requests (/api/analysis)
+                                     ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                        FASTAPI BACKEND LAYER                           │
+│              Python 3.11 + FastAPI + Pydantic v2 (Port 8000)          │
+│                                                                        │
+│  ┌─────────────────────────┐          ┌─────────────────────────────┐  │
+│  │   Forecast Selector     │          │       Metrics Engine        │  │
+│  │ (Cutoff & Look-Ahead)   │          │    (MAE, RMSE, Bias, WAPE)  │  │
+│  └───────────▲─────────────┘          └──────────────▲──────────────┘  │
+│              │                                       │                 │
+│  ┌───────────┴───────────────────────────────────────┴──────────────┐  │
+│  │                    Analysis Coordinator Pipeline                  │  │
+│  └─────────────────────────────────▲────────────────────────────────┘  │
+│                                    │                                   │
+│  ┌─────────────────────────────────┴────────────────────────────────┐  │
+│  │                BMRS Ingestion Client (Async HTTPX)                │  │
+│  └───────────────┬───────────────────────────────────▲──────────────┘  │
+└──────────────────┼───────────────────────────────────┼─────────────────┘
+                   │ Cache Miss (Fetch)                │ Read
+                   ▼                                   │
+┌─────────────────────────────────────┐  ┌─────────────┴───────────────┐
+│     ELEXON BMRS OPEN DATA API       │  │    LOCAL PERSISTENT CACHE   │
+│  https://data.elexon.co.uk/bmrs/v1 │  │     (backend/data/cache/)   │
+│   - /datasets/FUELHH/stream         │  │   - FUELHH_WIND_*.json      │
+│   - /datasets/WINDFOR/stream        │  │   - WINDFOR_*.json          │
+└─────────────────────────────────────┘  └─────────────────────────────┘
+```
+
+### C. Folder Structure
 
 ```text
 welllass/
@@ -200,9 +276,23 @@ docker-compose up --build
 
 ---
 
-## 
-   ```
-3. **Healthcheck Endpoint:** `GET /api/health`
+## 7. Deployment Guide
+
+### A. Backend Deployment (Docker Container)
+* **Build Context:** Repository Root (`.`)
+* **Dockerfile Path:** `backend/Dockerfile`
+* **Exposed Port:** `8000`
+* **Environment Variables:**
+  ```ini
+  ELEXON_API_BASE_URL=https://data.elexon.co.uk/bmrs/api/v1
+  ELEXON_HTTP_TIMEOUT=30.0
+  DEFAULT_START_DATE=2026-01-01
+  DEFAULT_END_DATE=2026-01-31
+  DEFAULT_CUTOFF_TIME_UK=11:00
+  CORS_ORIGINS=https://your-frontend-domain.vercel.app,http://localhost:3000,http://localhost:5173
+  DEBUG=False
+  ```
+* **Healthcheck:** `GET /api/health`
 
 ### B. Frontend Deployment (Vercel)
 
@@ -219,7 +309,28 @@ docker-compose up --build
 
 ---
 
-## 8. Testing Suite & Verification
+## 8. Accuracy Calculations & Testing Suite
+
+### A. Accuracy Formulations & Market Risk
+
+$$\text{Signed Error}_i = \text{Forecast}_i - \text{Actual}_i \quad (\text{MW})$$
+
+* **Mean Absolute Error (MAE):**
+  $$\text{MAE} = \frac{1}{N} \sum_{i=1}^{N} |\text{Forecast}_i - \text{Actual}_i| \quad (\text{MW})$$
+  *Measures average error magnitude. Half-hour volume deviation in MWh is computed as $\text{MAE} \times 0.5\text{ h}$.*
+* **Root Mean Squared Error (RMSE):**
+  $$\text{RMSE} = \sqrt{\frac{1}{N} \sum_{i=1}^{N} (\text{Forecast}_i - \text{Actual}_i)^2} \quad (\text{MW})$$
+  *Heavily penalizes extreme forecast blowouts. The spread $(\text{RMSE} - \text{MAE})$ quantifies error volatility.*
+* **Mean Bias (Signed Directional Error):**
+  $$\text{Bias} = \frac{1}{N} \sum_{i=1}^{N} (\text{Forecast}_i - \text{Actual}_i) \quad (\text{MW})$$
+  *Positive ($>0$) = Overforecasting (Utility under-buys in Day-Ahead; left short at cashout prices).*
+  *Negative ($<0$) = Underforecasting (Utility over-buys; surplus power physically spills).*
+* **Weighted Absolute Percentage Error (WAPE):**
+  $$\text{WAPE} = \frac{\sum_{i=1}^{N} |\text{Forecast}_i - \text{Actual}_i|}{\sum_{i=1}^{N} \text{Actual}_i} \times 100\%$$
+  *Normalized against total monthly generation. If $\sum \text{Actual} == 0$, WAPE safely returns `null`.*
+* **Why MAPE is Omitted:** When wind generation drops near zero MW, $\frac{|F - A|}{A}$ divides by near-zero, generating false $10,000\%+$ percentage spikes. WAPE is mathematically immune to zero-division distortion.
+
+### B. Automated Test Suite (23 Passing Tests)
 
 The test suite runs with **zero network dependency** using deterministic fixtures:
 
@@ -227,15 +338,33 @@ The test suite runs with **zero network dependency** using deterministic fixture
 python -m pytest backend/tests -v
 ```
 
-### Pytest Results: 23 Passed / 0 Failed
+```text
+backend/tests/test_api.py::test_health_endpoint PASSED
+backend/tests/test_api.py::test_metadata_endpoint PASSED
+backend/tests/test_api.py::test_analysis_endpoint_success PASSED
+backend/tests/test_api.py::test_analysis_endpoint_invalid_date_range PASSED
+backend/tests/test_api.py::test_analysis_demo_mode PASSED
+backend/tests/test_api.py::test_analysis_exact_timestamp_matching PASSED
+backend/tests/test_bmrs_client.py::test_cache_write_and_read PASSED
+backend/tests/test_bmrs_client.py::test_fetch_fuelhh_uses_cache PASSED
+backend/tests/test_bmrs_client.py::test_fetch_fuelhh_retry_on_server_error PASSED
+backend/tests/test_bmrs_client.py::test_fetch_windfor_network_failure PASSED
+backend/tests/test_forecast_selector.py::test_cutoff_calculation_gmt PASSED
+backend/tests/test_forecast_selector.py::test_cutoff_calculation_bst PASSED
+backend/tests/test_forecast_selector.py::test_strict_lookahead_exclusion PASSED
+backend/tests/test_forecast_selector.py::test_latest_eligible_selection PASSED
+backend/tests/test_forecast_selector.py::test_hourly_block_resolution_matching PASSED
+backend/tests/test_forecast_selector.py::test_exact_timestamp_resolution_matching PASSED
+backend/tests/test_forecast_selector.py::test_deduplication_of_records PASSED
+backend/tests/test_metrics.py::test_mae_calculation PASSED
+backend/tests/test_metrics.py::test_rmse_calculation PASSED
+backend/tests/test_metrics.py::test_bias_calculation PASSED
+backend/tests/test_metrics.py::test_wape_calculation PASSED
+backend/tests/test_metrics.py::test_wape_zero_denominator_safe PASSED
+backend/tests/test_metrics.py::test_empty_records_metrics PASSED
 
-* **Metrics Verification:** Tested against exact hand-calculated ground truth:
-  $$\text{MAE}=240.0 \text{ MW}, \quad \text{RMSE}=275.68 \text{ MW}, \quad \text{Bias}=0.0 \text{ MW}, \quad \text{WAPE}=22.64\%$$
-* **Zero Denominator:** Validated that $\sum Actual == 0$ safely sets `wape_pct = None` without division-by-zero crashes.
-* **Cutoff Logic & Look-Ahead Prevention:** Validated rejection of forecasts published at 11:30 D-1 when cutoff is 11:00 D-1.
-* **Daylight Saving Edge Cases:** Verified GMT (UTC+0) vs BST (UTC+1, where 11:00 BST translates to 10:00 UTC).
-* **Missing Data & Deduplication:** Verified handling of missing forecasts, missing actuals, and duplicate records.
-* **FastAPI Endpoints:** Verified `/api/health`, `/api/metadata`, and `/api/analysis` (including HTTP 400 rejection for invalid ranges).
+============================== 23 passed in 1.36s ==============================
+```
 
 ---
 
@@ -253,8 +382,19 @@ Ingesting genuine Elexon BMRS observations for the entire month of January 2026 
 
 ---
 
-## 
----
+## 10. Technical Demo Outline (10 Minutes)
+
+### Part 1 — Customer & Market Analyst Presentation (5 Minutes)
+1. **The Commercial Procurement Challenge (1 min):** Wholesale power purchasing in UK day-ahead auction; volume imbalance risks from wind intermittency.
+2. **Dashboard Demonstration (2 min):** Real Elexon January 2026 data, MAE ($2,126.1 \text{ MW}$), RMSE ($2,620.8 \text{ MW}$), and Mean Bias ($+1,840.3 \text{ MW}$ short risk).
+3. **Interactive Charts & Decision Analysis (1.5 min):** Forecast vs. Actual overlay with zoom brush, Signed Error profile identifying extreme deviation days.
+4. **Decision Support Scope (0.5 min):** Empirical error distributions for risk hedging and reserve sizing; transparent decision support without automated trade execution.
+
+### Part 2 — Technical & Architectural Review (5 Minutes)
+1. **Architecture & Ingestion (1 min):** FastAPI backend, React 19 frontend, streaming from Elexon BMRS `/FUELHH` and `/WINDFOR` with local disk caching.
+2. **Look-Ahead Bias Elimination (1.5 min):** Strict enforcement of 11:00 D-1 wholesale cutoff, GMT/BST timezone translation, and hourly-to-half-hourly resolution matching.
+3. **Automated Testing Suite (1.5 min):** 23 pytest tests passing in 1.36s, zero-denominator safety, and deterministic synthetic demo fixtures.
+4. **Containerization & Deployment (1 min):** Multi-stage Docker builds, Docker Compose, Nginx reverse proxy, and Vercel cloud configuration.
 
 ## 11. Honest Disclosures, Limitations & AI Tool Usage
 
